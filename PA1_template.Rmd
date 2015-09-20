@@ -1,25 +1,79 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
+# Markdown file for Reproducible research
 
+By Steven Zwart
+17-09-2015
 
-## Loading and preprocessing the data
+## First step: load data
 
+Go to the directory where the file activity.csv has been downloaded and load and prepare the data
 
+```{r, setoptions, echo=TRUE}
+act <- read.csv("activity.csv")
+act$date <- as.Date(act$date, "%Y-%m-%d")
+act1 <- act[!is.na(act$steps),]
+act_agg <- aggregate(act1$steps, by=list(act1$date), sum)
+colnames(act_agg) <- c("Date", "TotalSteps")
+```
 
-## What is mean total number of steps taken per day?
+## What is the mean total number of steps taken per day?
 
-
+```{r}
+hist(act_agg$TotalSteps)
+mean(act_agg$TotalSteps)
+median(act_agg$TotalSteps)
+```
 
 ## What is the average daily activity pattern?
 
+For this I will use the library dplyr, so that should be installed, this can be done with
 
+install.packages("dplyr")
+
+```{r}
+library (dplyr)
+df <- group_by(act1, interval) %>% summarise(mean=mean(steps))
+plot(df, type = "l")
+sprintf("The 5 minute interval that contains on average the maximum number of steps is %s.", df[which(df$mean==max(df$mean)),]$interval)
+```
 
 ## Imputing missing values
 
+Total number of missing values
+
+```{r}
+sprintf("The total number of missing values in the dataset is %s. ", sum(is.na(act)))
+# act2 will have the missing values imputed
+act2 <- act
+# Impute missing values (steps): use mean of that particular interval 
+for (i in 1:nrow(act2)) {
+  if (is.na(act2[i,1])) {
+    avg <- df[which(df$interval == act2[i,]$interval),]$mean
+    act2[i,]$steps <- round(avg)
+  }
+}
+act2_agg <- aggregate(act2$steps, by=list(act2$date), sum)
+colnames(act2_agg) <- c("Date", "TotalSteps")
+hist(act2_agg$TotalSteps)
+mean(act2_agg$TotalSteps)
+median(act2_agg$TotalSteps)
+```
+
+Weekdays
+
+```{r}
+# Set language to English (Windows)
+Sys.setlocale("LC_TIME","C")
+act2$weekday <- NA
+for (i in 1:nrow(act2)) {
+  if (weekdays(as.Date(act2[i,]$date)) %in%  c("Saturday", "Sunday")) {
+    act2[i,]$weekday <- "0"
+  } else {
+    act2[i,]$weekday <- "1"
+  }
+}
+library(lattice)
+act2$weekday <- as.factor(act2$weekday)
+ xyplot (steps~interval|weekday, data= act2, type = "l", layout = c(2,1), strip=strip.custom(factor.levels = c("Weekend", "Weekday")))
+```
 
 
-## Are there differences in activity patterns between weekdays and weekends?
